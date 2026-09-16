@@ -1,20 +1,22 @@
 "use client";
 
 /**
- * نمای تنظیمات: مدیریت حساب‌ها + تنظیمات عمومی + امنیت (رمز، 2FA، نشست‌ها، پاک‌سازی)
+ * نمای تنظیمات — سه تب مجزا برای کاهش شلوغی و دسترسی سریع:
+ *   ۱) حساب‌ها: مدیریت حساب‌های وال‌گلد
+ *   ۲) عمومی: ظاهر، اعداد، به‌روزرسانی، هشدارها و نصب PWA
+ *   ۳) امنیت: داشبورد دفاع سایبری، 2FA، رمز، نشست‌ها و پاک‌سازی
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useAppStore } from "@/store/app-store";
 import { api, ApiError, type PublicAccount } from "@/lib/client-api";
-import { qrDataUrl } from "@/lib/qr";
+import { usePwaInstall } from "@/lib/pwa";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog,
@@ -34,14 +36,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Checkbox } from "@/components/ui/checkbox";
+import { SecurityPanel } from "./security-panel";
 import { AddAccountDialog } from "./add-account-dialog";
 import {
   Settings as SettingsIcon,
   Users,
   SlidersHorizontal,
   ShieldCheck,
-  Loader2,
   Pencil,
   Trash2,
   Eye,
@@ -51,29 +52,62 @@ import {
   CircleAlert,
   Moon,
   Sun,
-  Trash,
   AlertTriangle,
-  KeyRound,
-  Smartphone,
-  Copy,
-  Download,
-  Check,
-  LogOut,
+  MonitorSmartphone,
+  Share,
+  CirclePlus,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
+type SettingsTab = "accounts" | "general" | "security";
+
+const TABS: { key: SettingsTab; label: string; icon: typeof Users }[] = [
+  { key: "accounts", label: "حساب‌ها", icon: Users },
+  { key: "general", label: "عمومی", icon: SlidersHorizontal },
+  { key: "security", label: "امنیت", icon: ShieldCheck },
+];
+
 /** نمای تنظیمات */
 export function SettingsView() {
+  const [tab, setTab] = useState<SettingsTab>("accounts");
+
   return (
-    <div className="space-y-6 max-w-3xl mx-auto">
+    <div className="space-y-5 max-w-3xl mx-auto">
       <h2 className="font-bold text-lg flex items-center gap-2">
         <SettingsIcon className="w-5 h-5 text-gold" aria-hidden="true" />
         تنظیمات
       </h2>
-      <AccountsSection />
-      <GeneralSection />
-      <SecuritySection />
+
+      {/* نوار تب‌ها — روی موبایل قابل اسکرول افقی */}
+      <div
+        className="flex items-center gap-1 p-1 rounded-xl bg-muted/60 border border-border/60 overflow-x-auto no-scrollbar"
+        role="tablist"
+        aria-label="بخش‌های تنظیمات"
+      >
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            role="tab"
+            aria-selected={tab === t.key}
+            onClick={() => setTab(t.key)}
+            className={cn(
+              "flex items-center gap-2 px-4 h-10 rounded-lg text-sm font-medium transition-colors whitespace-nowrap shrink-0",
+              tab === t.key
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <t.icon className="w-4 h-4" aria-hidden="true" />
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "accounts" && <AccountsSection />}
+      {tab === "general" && <GeneralSection />}
+      {tab === "security" && <SecurityPanel />}
     </div>
   );
 }
@@ -144,7 +178,7 @@ function AccountsSection() {
 
   return (
     <Card>
-      <CardContent className="p-5 space-y-4">
+      <CardContent className="p-4 sm:p-5 space-y-4">
         <div className="flex items-center justify-between gap-3">
           <h3 className="font-bold flex items-center gap-2">
             <Users className="w-4.5 h-4.5 text-gold" aria-hidden="true" />
@@ -152,6 +186,14 @@ function AccountsSection() {
           </h3>
           <AddAccountDialog />
         </div>
+
+        {accounts.length === 0 && (
+          <p className="text-sm text-muted-foreground text-center py-6 leading-7">
+            هنوز حسابی اضافه نشده است.
+            <br />
+            با دکمه «افزودن حساب»، اولین حساب وال‌گلد خود را با توکن API ثبت کنید.
+          </p>
+        )}
 
         <div className="space-y-3">
           {accounts.map((acc) => (
@@ -173,7 +215,7 @@ function AccountsSection() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8"
+                    className="h-9 w-9"
                     onClick={() => toggleVisible(acc)}
                     title={acc.visible ? "پنهان از داشبورد" : "نمایش در داشبورد"}
                     aria-label={acc.visible ? `پنهان کردن ${acc.name}` : `نمایش ${acc.name}`}
@@ -183,7 +225,7 @@ function AccountsSection() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8"
+                    className="h-9 w-9"
                     onClick={() => {
                       setEditing(acc);
                       setEditName(acc.name);
@@ -196,7 +238,7 @@ function AccountsSection() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-destructive hover:text-destructive"
+                    className="h-9 w-9 text-destructive hover:text-destructive"
                     onClick={() => setDeleting(acc)}
                     title="حذف حساب"
                     aria-label={`حذف ${acc.name}`}
@@ -287,6 +329,7 @@ function GeneralSection() {
   const theme = useAppStore((s) => s.theme);
   const setTheme = useAppStore((s) => s.setTheme);
   const [saving, setSaving] = useState(false);
+  const { canInstall, promptInstall, isStandalone, isIOS } = usePwaInstall();
 
   const save = async (data: Parameters<typeof api.saveSettings>[0]) => {
     setSaving(true);
@@ -302,672 +345,210 @@ function GeneralSection() {
   };
 
   return (
-    <Card>
-      <CardContent className="p-5 space-y-5">
-        <h3 className="font-bold flex items-center gap-2">
-          <SlidersHorizontal className="w-4.5 h-4.5 text-gold" aria-hidden="true" />
-          تنظیمات عمومی
-        </h3>
+    <div className="space-y-5">
+      <Card>
+        <CardContent className="p-4 sm:p-5 space-y-5">
+          <h3 className="font-bold flex items-center gap-2">
+            <SlidersHorizontal className="w-4.5 h-4.5 text-gold" aria-hidden="true" />
+            نمایش و ظاهر
+          </h3>
 
-        {/* تم */}
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <Label>تم اپلیکیشن</Label>
-            <p className="text-xs text-muted-foreground mt-1">حالت نمایش روشن یا تاریک</p>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Button
-              variant={theme === "dark" ? "default" : "outline"}
-              size="sm"
-              onClick={() => {
-                setTheme("dark");
-                save({ defaultTheme: "dark" });
-              }}
-              className="gap-1.5"
-            >
-              <Moon className="w-3.5 h-3.5" aria-hidden="true" />
-              تاریک
-            </Button>
-            <Button
-              variant={theme === "light" ? "default" : "outline"}
-              size="sm"
-              onClick={() => {
-                setTheme("light");
-                save({ defaultTheme: "light" });
-              }}
-              className="gap-1.5"
-            >
-              <Sun className="w-3.5 h-3.5" aria-hidden="true" />
-              روشن
-            </Button>
-          </div>
-        </div>
-
-        {/* فرمت اعداد */}
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <Label htmlFor="persian-digits">ارقام فارسی</Label>
-            <p className="text-xs text-muted-foreground mt-1">نمایش اعداد با ارقام فارسی (۱۲۳) یا انگلیسی (123)</p>
-          </div>
-          <Switch
-            id="persian-digits"
-            checked={settings.persianDigits}
-            onCheckedChange={(v) => save({ persianDigits: v })}
-            disabled={saving}
-          />
-        </div>
-
-        {/* به‌روزرسانی بازارها */}
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <Label>به‌روزرسانی خودکار قیمت‌ها</Label>
-            <p className="text-xs text-muted-foreground mt-1">فاصله دریافت قیمت لحظه‌ای بازارها</p>
-          </div>
-          <Select
-            value={String(settings.marketsRefreshSeconds)}
-            onValueChange={(v) => save({ marketsRefreshSeconds: Number(v) })}
-            disabled={saving}
+          {/* تم */}
+          <SettingRow
+            label="تم اپلیکیشن"
+            hint="حالت نمایش روشن یا تاریک"
           >
-            <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="10">۱۰ ثانیه</SelectItem>
-              <SelectItem value="30">۳۰ ثانیه</SelectItem>
-              <SelectItem value="60">۱ دقیقه</SelectItem>
-              <SelectItem value="120">۲ دقیقه</SelectItem>
-              <SelectItem value="0">غیرفعال</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* به‌روزرسانی موجودی */}
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <Label>به‌روزرسانی خودکار موجودی</Label>
-            <p className="text-xs text-muted-foreground mt-1">فاصله دریافت موجودی حساب‌ها</p>
-          </div>
-          <Select
-            value={String(settings.balancesRefreshSeconds)}
-            onValueChange={(v) => save({ balancesRefreshSeconds: Number(v) })}
-            disabled={saving}
-          >
-            <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="30">۳۰ ثانیه</SelectItem>
-              <SelectItem value="60">۱ دقیقه</SelectItem>
-              <SelectItem value="120">۲ دقیقه</SelectItem>
-              <SelectItem value="0">غیرفعال</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* آستانه هشدار مبلغ بالا */}
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <Label htmlFor="high-value">آستانه هشدار مبلغ بالا (تومان)</Label>
-            <p className="text-xs text-muted-foreground mt-1">سفارش‌های بالای این مبلغ هشدار ویژه نمایش می‌دهند</p>
-          </div>
-          <Input
-            id="high-value"
-            dir="ltr"
-            inputMode="numeric"
-            className="w-36 text-end"
-            defaultValue={String(settings.highValueWarningTMN)}
-            onBlur={(e) => {
-              const v = Number(e.target.value.replace(/[^0-9]/g, ""));
-              if (Number.isFinite(v) && v !== settings.highValueWarningTMN) save({ highValueWarningTMN: v });
-            }}
-          />
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-/* -------------------------------- بخش امنیت -------------------------------- */
-
-function SecuritySection() {
-  const settings = useAppStore((s) => s.settings);
-  const setSettings = useAppStore((s) => s.setSettings);
-
-  const [has2fa, setHas2fa] = useState<boolean | null>(null);
-  const [activeSessions, setActiveSessions] = useState<number | null>(null);
-
-  /* تغییر رمز */
-  const [current, setCurrent] = useState("");
-  const [newPass, setNewPass] = useState("");
-  const [confirmPass, setConfirmPass] = useState("");
-  const [passTotp, setPassTotp] = useState("");
-  const [passBusy, setPassBusy] = useState(false);
-
-  /* 2FA */
-  const [enrollOpen, setEnrollOpen] = useState(false);
-  const [enrollSecret, setEnrollSecret] = useState("");
-  const [enrollQr, setEnrollQr] = useState<string | null>(null);
-  const [enrollCode, setEnrollCode] = useState("");
-  const [enrollBusy, setEnrollBusy] = useState(false);
-  const [backupCodes, setBackupCodes] = useState<string[] | null>(null);
-  const [savedConfirmed, setSavedConfirmed] = useState(false);
-
-  /* غیرفعال‌سازی 2FA */
-  const [disableOpen, setDisableOpen] = useState(false);
-  const [disPass, setDisPass] = useState("");
-  const [disCode, setDisCode] = useState("");
-  const [disBusy, setDisBusy] = useState(false);
-
-  /* پاک‌سازی */
-  const [wipeOpen, setWipeOpen] = useState(false);
-  const [wipePass, setWipePass] = useState("");
-  const [wipeCode, setWipeCode] = useState("");
-  const [wipeBusy, setWipeBusy] = useState(false);
-
-  /* بارگذاری وضعیت امنیتی */
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const s = await api.auth.session();
-        if (!alive) return;
-        setHas2fa(s.has2fa);
-        setActiveSessions(s.activeSessions);
-      } catch {
-        /* نادیده بگیر */
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  /* ---------- تغییر رمز ---------- */
-  const changePassword = async () => {
-    if (passBusy) return;
-    if (newPass.length < 8) {
-      toast.error("رمز جدید باید حداقل ۸ کاراکتر باشد");
-      return;
-    }
-    if (newPass !== confirmPass) {
-      toast.error("رمز جدید و تکرار آن یکسان نیستند");
-      return;
-    }
-    setPassBusy(true);
-    try {
-      const { message } = await api.auth.changePassword(current, newPass, has2fa ? passTotp.trim() : undefined);
-      toast.success(message);
-      setCurrent(""); setNewPass(""); setConfirmPass(""); setPassTotp("");
-    } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : "تغییر رمز ناموفق بود");
-    } finally {
-      setPassBusy(false);
-    }
-  };
-
-  /* ---------- 2FA ---------- */
-  const openEnroll = async () => {
-    setEnrollOpen(true);
-    setEnrollQr(null);
-    setEnrollCode("");
-    setBackupCodes(null);
-    setSavedConfirmed(false);
-    try {
-      const res = await api.auth.totpEnroll();
-      setEnrollSecret(res.secret);
-      setEnrollQr(await qrDataUrl(res.otpauthUri));
-    } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : "شروع فعال‌سازی ناموفق بود");
-      setEnrollOpen(false);
-    }
-  };
-
-  const submitEnrollCode = async () => {
-    if (enrollBusy || !/^\d{6}$/.test(enrollCode)) {
-      if (!/^\d{6}$/.test(enrollCode)) toast.error("کد ۶ رقمی را وارد کنید");
-      return;
-    }
-    setEnrollBusy(true);
-    try {
-      const res = await api.auth.totpEnable(enrollCode);
-      setBackupCodes(res.backupCodes);
-      setHas2fa(true);
-      toast.success("ورود دومرحله‌ای فعال شد");
-    } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : "کد نامعتبر است");
-    } finally {
-      setEnrollBusy(false);
-    }
-  };
-
-  const disable2fa = async () => {
-    if (disBusy) return;
-    setDisBusy(true);
-    try {
-      await api.auth.totpDisable(disPass, disCode);
-      setHas2fa(false);
-      setDisableOpen(false);
-      setDisPass(""); setDisCode("");
-      toast.success("ورود دومرحله‌ای غیرفعال شد");
-    } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : "غیرفعال‌سازی ناموفق بود");
-    } finally {
-      setDisBusy(false);
-    }
-  };
-
-  const regenerateBackup = async () => {
-    try {
-      const res = await api.auth.totpBackupRegenerate(disPass, disCode);
-      setBackupCodes(res.backupCodes);
-      toast.success("کدهای پشتیبان جدید تولید شد — قدیمی‌ها باطل شدند");
-    } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : "تولید مجدد ناموفق بود");
-    }
-  };
-
-  const copyText = async (text: string, what: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      toast.success(`${what} کپی شد`);
-    } catch {
-      toast.error("کپی ناموفق بود");
-    }
-  };
-
-  const downloadBackupCodes = (codes: string[]) => {
-    const content =
-      "WallGold Manager — کدهای پشتیبان ورود دومرحله‌ای\n" +
-      "تاریخ تولید: " + new Date().toLocaleString("fa-IR") + "\n\n" + codes.join("\n") + "\n";
-    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "wallgold-backup-codes.txt";
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  /* ---------- خروج همه ---------- */
-  const [logoutAllBusy, setLogoutAllBusy] = useState(false);
-  const logoutAll = async () => {
-    setLogoutAllBusy(true);
-    try {
-      await api.auth.logoutAll();
-      window.location.reload();
-    } catch {
-      setLogoutAllBusy(false);
-    }
-  };
-
-  /* ---------- پاک‌سازی ---------- */
-  const wipe = async () => {
-    if (wipeBusy) return;
-    setWipeBusy(true);
-    try {
-      await api.wipeAll(wipePass, has2fa ? wipeCode.trim() : undefined);
-      window.location.reload();
-    } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : "پاک‌سازی ناموفق بود");
-      setWipeBusy(false);
-    }
-  };
-
-  return (
-    <Card className="border-destructive/20">
-      <CardContent className="p-5 space-y-5">
-        <h3 className="font-bold flex items-center gap-2">
-          <ShieldCheck className="w-4.5 h-4.5 text-gold" aria-hidden="true" />
-          امنیت
-        </h3>
-
-        {/* ---------- ورود دومرحله‌ای ---------- */}
-        <div className="space-y-4 rounded-xl border border-border/60 p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <Label className="flex items-center gap-1.5">
-                <Smartphone className="w-3.5 h-3.5" aria-hidden="true" />
-                ورود دومرحله‌ای (2FA)
-              </Label>
-              <p className="text-xs text-muted-foreground mt-1">
-                {has2fa === null ? "در حال بررسی وضعیت…" : has2fa ? "فعال — ورود با رمز + کد اپ Authenticator" : "غیرفعال — توصیه می‌شود فعال کنید"}
-              </p>
-            </div>
-            {has2fa && (
-              <Badge className="bg-buy/15 text-buy border-0" variant="secondary">فعال</Badge>
-            )}
-          </div>
-
-          {has2fa ? (
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" onClick={() => setDisableOpen(true)}>
-                مدیریت / غیرفعال‌سازی
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant={theme === "dark" ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setTheme("dark");
+                  save({ defaultTheme: "dark" });
+                }}
+                className="gap-1.5 h-9"
+                aria-pressed={theme === "dark"}
+              >
+                <Moon className="w-3.5 h-3.5" aria-hidden="true" />
+                تاریک
+              </Button>
+              <Button
+                variant={theme === "light" ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setTheme("light");
+                  save({ defaultTheme: "light" });
+                }}
+                className="gap-1.5 h-9"
+                aria-pressed={theme === "light"}
+              >
+                <Sun className="w-3.5 h-3.5" aria-hidden="true" />
+                روشن
               </Button>
             </div>
-          ) : (
-            <Button size="sm" onClick={openEnroll} disabled={has2fa === null}>
-              <Smartphone className="w-3.5 h-3.5 me-1" aria-hidden="true" />
-              فعال‌سازی 2FA
-            </Button>
-          )}
-        </div>
+          </SettingRow>
 
-        {/* ---------- تغییر رمز عبور ---------- */}
-        <div className="space-y-4 rounded-xl border border-border/60 p-4">
-          <div>
-            <Label className="flex items-center gap-1.5">
-              <KeyRound className="w-3.5 h-3.5" aria-hidden="true" />
-              تغییر رمز عبور
-            </Label>
-            <p className="text-xs text-muted-foreground mt-1">
-              پس از تغییر، همه دستگاه‌های دیگر به‌صورت خودکار خارج می‌شوند.
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="sec-current">رمز فعلی</Label>
-            <Input
-              id="sec-current"
-              type="password"
-              dir="ltr"
-              value={current}
-              onChange={(e) => setCurrent(e.target.value)}
-              autoComplete="current-password"
+          {/* فرمت اعداد */}
+          <SettingRow
+            label="ارقام فارسی"
+            hint="نمایش اعداد با ارقام فارسی (۱۲۳) یا انگلیسی (123)"
+            htmlFor="persian-digits"
+          >
+            <Switch
+              id="persian-digits"
+              checked={settings.persianDigits}
+              onCheckedChange={(v) => save({ persianDigits: v })}
+              disabled={saving}
             />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="sec-new">رمز جدید</Label>
-              <Input
-                id="sec-new"
-                type="password"
-                dir="ltr"
-                value={newPass}
-                onChange={(e) => setNewPass(e.target.value)}
-                placeholder="حداقل ۸ کاراکتر"
-                autoComplete="new-password"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="sec-confirm">تکرار رمز جدید</Label>
-              <Input
-                id="sec-confirm"
-                type="password"
-                dir="ltr"
-                value={confirmPass}
-                onChange={(e) => setConfirmPass(e.target.value)}
-                autoComplete="new-password"
-              />
-            </div>
-          </div>
-          {has2fa && (
-            <div className="space-y-2">
-              <Label htmlFor="sec-totp">کد تأیید دومرحله‌ای</Label>
-              <Input
-                id="sec-totp"
-                dir="ltr"
-                inputMode="numeric"
-                maxLength={6}
-                value={passTotp}
-                onChange={(e) => setPassTotp(e.target.value.replace(/\D/g, ""))}
-                className="text-center tracking-[0.3em]"
-              />
-            </div>
-          )}
-          <Button onClick={changePassword} disabled={passBusy || !current || !newPass || !confirmPass}>
-            {passBusy ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <KeyRound className="w-4 h-4 me-1" aria-hidden="true" />}
-            تغییر رمز عبور
-          </Button>
-        </div>
+          </SettingRow>
+        </CardContent>
+      </Card>
 
-        {/* ---------- نشست‌ها و خروج خودکار ---------- */}
-        <div className="space-y-4 rounded-xl border border-border/60 p-4">
-          <div>
-            <Label>نشست‌های فعال</Label>
-            <p className="text-xs text-muted-foreground mt-1">
-              {activeSessions === null ? "—" : `${activeSessions} نشست فعال — هر نشست حداکثر ۱ ساعت اعتبار دارد`}
-            </p>
-          </div>
-          <Button variant="outline" size="sm" onClick={logoutAll} disabled={logoutAllBusy}>
-            {logoutAllBusy ? <Loader2 className="w-3.5 h-3.5 me-1 animate-spin" aria-hidden="true" /> : <LogOut className="w-3.5 h-3.5 me-1" aria-hidden="true" />}
-            خروج از همه دستگاه‌ها
-          </Button>
+      <Card>
+        <CardContent className="p-4 sm:p-5 space-y-5">
+          <h3 className="font-bold flex items-center gap-2">
+            <CircleCheck className="w-4.5 h-4.5 text-gold" aria-hidden="true" />
+            داده‌ها و هشدارها
+          </h3>
 
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <Label>خروج خودکار پس از بی‌فعالیتی</Label>
-              <p className="text-xs text-muted-foreground mt-1">۰ = فقط انقضای یک‌ساعته نشست</p>
-            </div>
+          {/* به‌روزرسانی بازارها */}
+          <SettingRow label="به‌روزرسانی خودکار قیمت‌ها" hint="فاصله دریافت قیمت لحظه‌ای بازارها">
             <Select
-              value={String(settings.autoLogoutMinutes)}
-              onValueChange={async (v) => {
-                const minutes = Number(v);
-                const { settings: s } = await api.saveSettings({ autoLogoutMinutes: minutes });
-                setSettings(s);
-              }}
+              value={String(settings.marketsRefreshSeconds)}
+              onValueChange={(v) => save({ marketsRefreshSeconds: Number(v) })}
+              disabled={saving}
             >
-              <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-32 h-9"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="5">۵ دقیقه</SelectItem>
-                <SelectItem value="10">۱۰ دقیقه</SelectItem>
-                <SelectItem value="15">۱۵ دقیقه</SelectItem>
-                <SelectItem value="30">۳۰ دقیقه</SelectItem>
-                <SelectItem value="60">۶۰ دقیقه</SelectItem>
+                <SelectItem value="10">۱۰ ثانیه</SelectItem>
+                <SelectItem value="30">۳۰ ثانیه</SelectItem>
+                <SelectItem value="60">۱ دقیقه</SelectItem>
+                <SelectItem value="120">۲ دقیقه</SelectItem>
                 <SelectItem value="0">غیرفعال</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-        </div>
+          </SettingRow>
 
-        {/* ---------- پاک‌سازی کامل ---------- */}
-        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 space-y-3">
-          <div className="flex items-start gap-3">
-            <Trash className="w-5 h-5 text-destructive shrink-0 mt-0.5" aria-hidden="true" />
-            <div>
-              <p className="font-bold text-destructive">پاک‌سازی کامل داده‌ها</p>
-              <p className="text-xs text-muted-foreground mt-1 leading-5">
-                تمام حساب‌ها، توکن‌های رمزنگاری‌شده، تاریخچه سفارشات، تنظیمات، رمز عبور و 2FA برای همیشه حذف
-                می‌شوند. این عمل غیرقابل برگشت است.
+          {/* به‌روزرسانی موجودی */}
+          <SettingRow label="به‌روزرسانی خودکار موجودی" hint="فاصله دریافت موجودی حساب‌ها">
+            <Select
+              value={String(settings.balancesRefreshSeconds)}
+              onValueChange={(v) => save({ balancesRefreshSeconds: Number(v) })}
+              disabled={saving}
+            >
+              <SelectTrigger className="w-32 h-9"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="30">۳۰ ثانیه</SelectItem>
+                <SelectItem value="60">۱ دقیقه</SelectItem>
+                <SelectItem value="120">۲ دقیقه</SelectItem>
+                <SelectItem value="0">غیرفعال</SelectItem>
+              </SelectContent>
+            </Select>
+          </SettingRow>
+
+          {/* آستانه هشدار مبلغ بالا */}
+          <SettingRow
+            label="آستانه هشدار مبلغ بالا (تومان)"
+            hint="سفارش‌های بالای این مبلغ هشدار ویژه نمایش می‌دهند"
+            htmlFor="high-value"
+          >
+            <Input
+              id="high-value"
+              dir="ltr"
+              inputMode="numeric"
+              className="w-36 text-end h-9"
+              defaultValue={String(settings.highValueWarningTMN)}
+              onBlur={(e) => {
+                const v = Number(e.target.value.replace(/[^0-9]/g, ""));
+                if (Number.isFinite(v) && v !== settings.highValueWarningTMN) save({ highValueWarningTMN: v });
+              }}
+            />
+          </SettingRow>
+        </CardContent>
+      </Card>
+
+      {/* نصب اپلیکیشن (PWA) */}
+      <Card>
+        <CardContent className="p-4 sm:p-5 space-y-4">
+          <h3 className="font-bold flex items-center gap-2">
+            <MonitorSmartphone className="w-4.5 h-4.5 text-gold" aria-hidden="true" />
+            نصب اپلیکیشن
+          </h3>
+
+          {isStandalone ? (
+            <div className="flex items-start gap-3 rounded-xl border border-buy/30 bg-buy/5 p-3.5">
+              <CircleCheck className="w-5 h-5 text-buy shrink-0 mt-0.5" aria-hidden="true" />
+              <p className="text-sm leading-6">
+                این دستگاه در حال حاضر از حالت <b>نصب‌شده</b> اجرا می‌شود — اپلیکیشن به‌صورت تمام‌صفحه و مستقل از
+                مرورگر باز شده است.
               </p>
             </div>
-          </div>
-          <Button variant="destructive" onClick={() => setWipeOpen(true)} className="sm:w-auto w-full">
-            <Trash className="w-4 h-4 me-1" aria-hidden="true" />
-            پاک‌سازی همه داده‌ها و توکن‌ها
-          </Button>
-        </div>
-      </CardContent>
-
-      {/* ---------- دیالوگ فعال‌سازی 2FA ---------- */}
-      <Dialog open={enrollOpen} onOpenChange={(v) => !v && !backupCodes && setEnrollOpen(false)}>
-        <DialogContent dir="rtl" className="sm:max-w-md max-h-[90vh] overflow-y-auto">
-          {!backupCodes ? (
+          ) : canInstall ? (
             <>
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <Smartphone className="w-5 h-5 text-gold" aria-hidden="true" />
-                  فعال‌سازی ورود دومرحله‌ای
-                </DialogTitle>
-                <DialogDescription>
-                  QR را با اپ Authenticator اسکن کنید یا راش را دستی وارد نمایید، سپس کد ۶ رقمی را تأیید کنید.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                {enrollQr ? (
-                  <div className="flex justify-center">
-                    <img
-                      src={enrollQr}
-                      alt="QR کد اتصال به اپ Authenticator"
-                      width={200}
-                      height={200}
-                      className="rounded-xl border-4 border-white bg-white"
-                    />
-                  </div>
-                ) : (
-                  <div className="flex justify-center py-6">
-                    <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" aria-hidden="true" />
-                  </div>
-                )}
-                <div className="space-y-2">
-                  <Label>راش دستی</Label>
-                  <div className="flex items-center gap-2">
-                    <code dir="ltr" className="flex-1 block rounded-lg bg-muted px-3 py-2.5 text-xs font-mono break-all select-all">
-                      {enrollSecret}
-                    </code>
-                    <Button type="button" variant="outline" size="icon" onClick={() => copyText(enrollSecret, "راش")} aria-label="کپی راش">
-                      <Copy className="w-4 h-4" aria-hidden="true" />
-                    </Button>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="enroll-code">کد ۶ رقمی اپ</Label>
-                  <Input
-                    id="enroll-code"
-                    dir="ltr"
-                    inputMode="numeric"
-                    maxLength={6}
-                    value={enrollCode}
-                    onChange={(e) => setEnrollCode(e.target.value.replace(/\D/g, ""))}
-                    className="text-center text-lg tracking-[0.4em]"
-                  />
-                </div>
-                <DialogFooter className="gap-2">
-                  <Button variant="outline" onClick={() => setEnrollOpen(false)}>انصراف</Button>
-                  <Button onClick={submitEnrollCode} disabled={enrollBusy || enrollCode.length !== 6}>
-                    {enrollBusy ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Check className="w-4 h-4 me-1" aria-hidden="true" />}
-                    تأیید و فعال‌سازی
-                  </Button>
-                </DialogFooter>
-              </div>
+              <p className="text-xs text-muted-foreground leading-6">
+                اپلیکیشن مدیریت وال‌گلد را روی همین دستگاه نصب کنید تا مانند یک اپ واقعی، تمام‌صفحه و سریع‌تر باز شود و
+                همیشه در دسترس باشد.
+              </p>
+              <Button onClick={promptInstall} className="gap-2">
+                <MonitorSmartphone className="w-4 h-4" aria-hidden="true" />
+                نصب روی این دستگاه
+              </Button>
             </>
+          ) : isIOS ? (
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground leading-6">
+                در مرورگر Safari سیستم عامل iOS:
+              </p>
+              <ol className="text-xs space-y-2 leading-6">
+                <li className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-lg bg-muted flex items-center justify-center shrink-0 text-[11px] font-bold">۱</span>
+                  روی دکمه اشتراک‌گذاری <Share className="w-3.5 h-3.5 inline text-gold" aria-hidden="true" /> در نوار پایین بزنید
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-lg bg-muted flex items-center justify-center shrink-0 text-[11px] font-bold">۲</span>
+                  گزینه «Add to Home Screen» را انتخاب کنید
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-lg bg-muted flex items-center justify-center shrink-0 text-[11px] font-bold">۳</span>
+                  روی «Add» بزنید — آیکون وال‌گلد به صفحه اصلی اضافه می‌شود
+                </li>
+              </ol>
+            </div>
           ) : (
-            <>
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5 text-gold" aria-hidden="true" />
-                  کدهای پشتیبان — فقط همین یک‌بار
-                </DialogTitle>
-                <DialogDescription>
-                  هر کد یک‌بار جایگزین کد ۶ رقمی می‌شود. در جای امن ذخیره کنید.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-2" dir="ltr">
-                  {backupCodes.map((c) => (
-                    <code key={c} className="rounded-lg bg-muted px-3 py-2 text-center text-xs font-mono select-all">
-                      {c}
-                    </code>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" className="flex-1" onClick={() => copyText(backupCodes.join("\n"), "کدهای پشتیبان")}>
-                    <Copy className="w-4 h-4 me-1" aria-hidden="true" /> کپی همه
-                  </Button>
-                  <Button variant="outline" className="flex-1" onClick={() => downloadBackupCodes(backupCodes)}>
-                    <Download className="w-4 h-4 me-1" aria-hidden="true" /> دانلود
-                  </Button>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Checkbox id="saved2" checked={savedConfirmed} onCheckedChange={(v) => setSavedConfirmed(v === true)} />
-                  <Label htmlFor="saved2" className="text-sm font-normal">کدها را در جای امن ذخیره کردم</Label>
-                </div>
-                <Button className="w-full" disabled={!savedConfirmed} onClick={() => setEnrollOpen(false)}>
-                  <Check className="w-4 h-4 me-1" aria-hidden="true" /> پایان
-                </Button>
-              </div>
-            </>
+            <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-muted/40 p-3.5">
+              <CirclePlus className="w-5 h-5 text-gold shrink-0 mt-0.5" aria-hidden="true" />
+              <p className="text-xs text-muted-foreground leading-6">
+                برای نصب، در کروم دسکتاپ روی آیکون نصب <span className="font-mono" dir="ltr">(⊕)</span> در انتهای نوار
+                آدرس کلیک کنید؛ در کروم اندروید از منوی سه‌نقطه گزینه «Add to Home screen / Install app» را انتخاب
+                نمایید.
+              </p>
+            </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
-      {/* ---------- دیالوگ مدیریت/غیرفعال‌سازی 2FA ---------- */}
-      <Dialog open={disableOpen} onOpenChange={setDisableOpen}>
-        <DialogContent dir="rtl" className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Smartphone className="w-5 h-5 text-gold" aria-hidden="true" />
-              مدیریت ورود دومرحله‌ای
-            </DialogTitle>
-            <DialogDescription>
-              برای غیرفعال‌سازی 2FA یا تولید مجدد کدهای پشتیبان، رمز عبور و کد فعلی را وارد کنید.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="dis-pass">رمز عبور</Label>
-              <Input id="dis-pass" type="password" dir="ltr" value={disPass} onChange={(e) => setDisPass(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="dis-code">کد ۶ رقمی یا کد پشتیبان</Label>
-              <Input
-                id="dis-code"
-                dir="ltr"
-                value={disCode}
-                onChange={(e) => setDisCode(e.target.value)}
-                className="text-center tracking-widest"
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Button variant="outline" onClick={regenerateBackup} disabled={!disPass || !disCode}>
-                <Copy className="w-4 h-4 me-1" aria-hidden="true" /> تولید مجدد کدهای پشتیبان
-              </Button>
-              <Button variant="destructive" onClick={disable2fa} disabled={disBusy || !disPass || !disCode}>
-                {disBusy ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <AlertTriangle className="w-4 h-4 me-1" aria-hidden="true" />}
-                غیرفعال‌سازی 2FA
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* ---------- تأیید پاک‌سازی ---------- */}
-      <Dialog open={wipeOpen} onOpenChange={setWipeOpen}>
-        <DialogContent dir="rtl" className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-destructive">
-              <AlertTriangle className="w-5 h-5" aria-hidden="true" />
-              پاک‌سازی کامل داده‌ها
-            </DialogTitle>
-            <DialogDescription>
-              این عمل تمام حساب‌ها، توکن‌ها، تاریخچه، تنظیمات، رمز عبور و 2FA را برای همیشه حذف می‌کند و اپلیکیشن
-              به حالت راه‌اندازی اولیه برمی‌گردد. مطمئن هستید؟
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="wipe-pass">رمز عبور برای تأیید</Label>
-              <Input
-                id="wipe-pass"
-                type="password"
-                dir="ltr"
-                value={wipePass}
-                onChange={(e) => setWipePass(e.target.value)}
-              />
-            </div>
-            {has2fa && (
-              <div className="space-y-2">
-                <Label htmlFor="wipe-code">کد تأیید دومرحله‌ای</Label>
-                <Input
-                  id="wipe-code"
-                  dir="ltr"
-                  value={wipeCode}
-                  onChange={(e) => setWipeCode(e.target.value)}
-                  className="text-center tracking-widest"
-                />
-              </div>
-            )}
-            <DialogFooter className="gap-2">
-              <Button variant="outline" onClick={() => setWipeOpen(false)} disabled={wipeBusy}>
-                انصراف
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={wipe}
-                disabled={wipeBusy || !wipePass || (has2fa === true && !wipeCode)}
-              >
-                {wipeBusy ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Trash className="w-4 h-4 me-1" aria-hidden="true" />}
-                پاک‌سازی قطعی
-              </Button>
-            </DialogFooter>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </Card>
+/** ردیف تنظیمات — روی موبایل زیر هم، از تبلت به بالا کنار هم */
+function SettingRow({
+  label,
+  hint,
+  htmlFor,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  htmlFor?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div className="min-w-0">
+        <Label htmlFor={htmlFor}>{label}</Label>
+        {hint && <p className="text-xs text-muted-foreground mt-1 leading-5">{hint}</p>}
+      </div>
+      <div className="shrink-0 self-start sm:self-auto">{children}</div>
+    </div>
   );
 }

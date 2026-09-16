@@ -11,13 +11,16 @@ import type { AccountRow } from "../db";
 import { getMasterKey, nowMs } from "../db";
 import { aesGcmDecrypt } from "../crypto";
 import { getMarketsCached, wgGetBalances, type WgBalance } from "../wallgold";
+import { recordPriceSnapshots, recordPortfolioSnapshot } from "../snapshots";
 
 export const marketRoutes = new Hono<AppBindings>();
 
-/** GET /api/markets — پروکسی بازارهای وال‌گلد (کش ۱۰ ثانیه‌ای) */
+/** GET /api/markets — پروکسی بازارهای وال‌گلد (کش ۱۰ ثانیه‌ای) + ثبت اسنپ‌شات قیمت */
 marketRoutes.get("/", async (c) => {
   const force = c.req.query("force") === "1";
   const markets = await getMarketsCached(force);
+  // ثبت تاریخی قیمت برای نمودارها — غیرمسدودکننده (هر ۲ دقیقه حداکثر یک‌بار)
+  recordPriceSnapshots(c.env.DB, markets).catch(() => {});
   return c.json({ success: true, markets, serverTime: new Date().toISOString() });
 });
 
@@ -69,6 +72,15 @@ export async function balancesHandler(c: Context<AppBindings>) {
   }
 
   const results = await Promise.all(rows.results.map((acc) => fetchForAccount(c, acc)));
+
+  // ثبت تاریخی ارزش دارایی برای نمودارها — غیرمسدودکننده (هر ۵ دقیقه حداکثر یک‌بار)
+  if (!accountId) {
+    recordPortfolioSnapshot(
+      c.env.DB,
+      results.map((r) => ({ ok: r.ok, balances: r.balances }))
+    ).catch(() => {});
+  }
+
   return c.json({ success: true, results });
 }
 

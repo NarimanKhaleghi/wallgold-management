@@ -31,7 +31,16 @@ import {
   sessionTtlMs,
   countActiveSessions,
 } from "../sessions";
-import { checkRateLimit, recordFailure, clearFailures, clientIp } from "../ratelimit";
+import {
+  checkRateLimit,
+  recordFailure,
+  clearFailures,
+  clientIp,
+  checkIpBan,
+  addStrike,
+  clearStrikes,
+  recordSecurityEvent,
+} from "../ratelimit";
 
 export const authRoutes = new Hono<AppBindings>();
 
@@ -135,6 +144,12 @@ authRoutes.post("/setup", async (c) => {
   const hash = await hashPassword(password, pbkdf2Iterations(c.env));
   await setSetting(c.env.DB, KEY_PASSWORD_HASH, hash);
   await clearFailures(c.env.DB, `setup:${ip}`);
+  await recordSecurityEvent(c.env.DB, {
+    type: "setup_completed",
+    ip,
+    userAgent: c.req.header("user-agent"),
+    detail: "رمز عبور اولیه ایجاد شد",
+  });
 
   const { expiresAt } = await createSession(c, { has2fa: false });
   return c.json({ success: true, message: "رمز عبور با موفقیت ایجاد شد.", expiresAt, nextStep: "totp" });
@@ -143,10 +158,38 @@ authRoutes.post("/setup", async (c) => {
 /** POST /api/auth/login — ورود با رمز عبور (+ کد 2FA در صورت فعال بودن) */
 authRoutes.post("/login", async (c) => {
   const ip = clientIp(c.req.header("cf-connecting-ip"));
+  const ua = c.req.header("user-agent");
   const db = c.env.DB;
 
+  // لایه ۱: بن IP پلکانی (اخطارهای انباشته از تلاش‌های ناموفق قبلی)
+  const ban = await checkIpBan(db, ip);
+  if (ban.banned) {
+    recordSecurityEvent(db, {
+      type: "banned_access",
+      ip,
+      userAgent: ua,
+      detail: `تلاش ورود در حالت بن (اخطار ${ban.strikes})`,
+    }).catch(() => {});
+    return c.json(
+      {
+        success: false,
+        message: `دسترسی شما به دلیل تلاش‌های ناموفق متعدد موقتاً مسدود شده است. حدوداً ${Math.ceil(
+          ban.retryAfterSec / 60
+        )} دقیقه دیگر مجدداً تلاش کنید.`,
+      },
+      403
+    );
+  }
+
+  // لایه ۲: Rate Limit مبتنی بر D1 (۵ ورود در ۱۰ دقیقه)
   const rl = await checkRateLimit(db, `login:${ip}`, 5, 10 * 60_000, 15 * 60_000);
   if (!rl.allowed) {
+    recordSecurityEvent(db, {
+      type: "rate_limited",
+      ip,
+      userAgent: ua,
+      detail: "سقف تلاش‌های ورود در پنجره ۱۰ دقیقه",
+    }).catch(() => {});
     return c.json(
       { success: false, message: `تلاش‌های ورود بیش از حد مجاز. ${Math.ceil(rl.retryAfterSec / 60)} دقیقه دیگر تلاش کنید.` },
       429
@@ -169,7 +212,20 @@ authRoutes.post("/login", async (c) => {
   // مرحله ۱: رمز عبور
   const stored = await getSetting(db, KEY_PASSWORD_HASH);
   if (!stored || !(await verifyPassword(password, stored))) {
-    await recordFailure(db, `login:${ip}`, 10 * 60_000);
+    const fails = await recordFailure(db, `login:${ip}`, 10 * 60_000);
+    recordSecurityEvent(db, { type: "login_failed", ip, userAgent: ua, detail: `رمز نادرست (تلاش ${fails})`, throttle: false }).catch(
+      () => {}
+    );
+    // عبور از آستانه → اخطار و بن پلکانی
+    if (fails >= 5) {
+      const banMs = await addStrike(db, ip);
+      recordSecurityEvent(db, {
+        type: "ip_banned",
+        ip,
+        userAgent: ua,
+        detail: `بن پلکانی ${Math.round(banMs / 60000)} دقیقه‌ای پس از ۵ تلاش ناموفق`,
+      }).catch(() => {});
+    }
     return c.json({ success: false, message: "رمز عبور نادرست است." }, 401);
   }
 
@@ -182,6 +238,12 @@ authRoutes.post("/login", async (c) => {
 
     const totpRl = await checkRateLimit(db, `totp:${ip}`, 10, 5 * 60_000, 15 * 60_000);
     if (!totpRl.allowed) {
+      recordSecurityEvent(db, {
+        type: "rate_limited",
+        ip,
+        userAgent: ua,
+        detail: "سقف تلاش‌های کد 2FA",
+      }).catch(() => {});
       return c.json(
         { success: false, message: `تلاش‌های کد تأیید بیش از حد. ${Math.ceil(totpRl.retryAfterSec / 60)} دقیقه دیگر تلاش کنید.` },
         429
@@ -189,13 +251,30 @@ authRoutes.post("/login", async (c) => {
     }
 
     if (!(await verifySecondFactor(db, c.env, totp))) {
-      await recordFailure(db, `totp:${ip}`, 5 * 60_000);
+      const fails = await recordFailure(db, `totp:${ip}`, 5 * 60_000);
+      recordSecurityEvent(db, {
+        type: "totp_failed",
+        ip,
+        userAgent: ua,
+        detail: `کد نامعتبر (تلاش ${fails})`,
+        throttle: false,
+      }).catch(() => {});
+      if (fails >= 10) {
+        const banMs = await addStrike(db, ip);
+        recordSecurityEvent(db, {
+          type: "ip_banned",
+          ip,
+          userAgent: ua,
+          detail: `بن پلکانی ${Math.round(banMs / 60000)} دقیقه‌ای پس از کدهای 2FA نامعتبر`,
+        }).catch(() => {});
+      }
       return c.json({ success: false, message: "کد تأیید دومرحله‌ای نامعتبر است." }, 401);
     }
   }
 
-  // موفق — پاک‌سازی شمارنده‌ها و ایجاد نشست
-  await Promise.all([clearFailures(db, `login:${ip}`), clearFailures(db, `totp:${ip}`)]);
+  // موفق — پاک‌سازی شمارنده‌ها، اخطارها و ثبت رویداد
+  await Promise.all([clearFailures(db, `login:${ip}`), clearFailures(db, `totp:${ip}`), clearStrikes(db, ip)]);
+  recordSecurityEvent(db, { type: "login_success", ip, userAgent: ua, detail: "ورود موفق" }).catch(() => {});
   const { expiresAt } = await createSession(c, { has2fa: state.has2fa });
   return c.json({ success: true, expiresAt, has2fa: state.has2fa });
 });
@@ -261,6 +340,12 @@ authRoutes.post("/password", async (c) => {
 
   const hash = await hashPassword(newPassword, pbkdf2Iterations(c.env));
   await setSetting(db, KEY_PASSWORD_HASH, hash);
+  await recordSecurityEvent(db, {
+    type: "password_changed",
+    ip: clientIp(c.req.header("cf-connecting-ip")),
+    userAgent: c.req.header("user-agent"),
+    detail: "تغییر رمز عبور از داخل نشست",
+  });
 
   // ابطال همه نشست‌های دیگر (این دستگاه باقی می‌ماند)
   await revokeOtherSessions(c);
@@ -274,6 +359,12 @@ authRoutes.post("/logout-all", async (c) => {
     return c.json({ success: false, message: "نشست معتبر نیست." }, 401);
   }
   await revokeAllSessions(c);
+  await recordSecurityEvent(c.env.DB, {
+    type: "logout_all",
+    ip: clientIp(c.req.header("cf-connecting-ip")),
+    userAgent: c.req.header("user-agent"),
+    detail: "خروج از همه دستگاه‌ها",
+  }).catch(() => {});
   return c.json({ success: true, message: "از همه دستگاه‌ها خارج شدید." });
 });
 
@@ -335,6 +426,12 @@ authRoutes.post("/totp/enable", async (c) => {
   await deleteSetting(db, KEY_TOTP_PENDING);
 
   const backupCodes = await generateBackupCodes(db);
+  await recordSecurityEvent(db, {
+    type: "2fa_enabled",
+    ip: clientIp(c.req.header("cf-connecting-ip")),
+    userAgent: c.req.header("user-agent"),
+    detail: "ورود دومرحله‌ای فعال شد و کدهای پشتیبان تولید شدند",
+  });
   return c.json({ success: true, message: "ورود دومرحله‌ای فعال شد.", backupCodes });
 });
 
@@ -366,6 +463,12 @@ authRoutes.post("/totp/disable", async (c) => {
     deleteSetting(db, KEY_TOTP_ENABLED),
     db.prepare("DELETE FROM backup_codes").run(),
   ]);
+  await recordSecurityEvent(db, {
+    type: "2fa_disabled",
+    ip: clientIp(c.req.header("cf-connecting-ip")),
+    userAgent: c.req.header("user-agent"),
+    detail: "ورود دومرحله‌ای غیرفعال شد",
+  });
   return c.json({ success: true, message: "ورود دومرحله‌ای غیرفعال شد." });
 });
 

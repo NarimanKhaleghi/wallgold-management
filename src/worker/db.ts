@@ -9,7 +9,7 @@
 import type { D1Database } from "./env";
 import { randomBytes, bytesToB64url, b64urlToBytes } from "./crypto";
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 const DDL: string[] = [
   `CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`,
@@ -56,7 +56,43 @@ const DDL: string[] = [
     used INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL
   )`,
-  `INSERT INTO app_meta (key, value) VALUES ('schema_version', '1') ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+  /* --- v2: دفاع سایبری و تحلیل --- */
+  `CREATE TABLE IF NOT EXISTS security_events (
+    id TEXT PRIMARY KEY,
+    type TEXT NOT NULL,
+    ip TEXT,
+    user_agent TEXT,
+    detail TEXT,
+    created_at INTEGER NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_sec_events_time ON security_events(created_at DESC)`,
+  `CREATE TABLE IF NOT EXISTS ip_strikes (
+    ip TEXT PRIMARY KEY,
+    strikes INTEGER NOT NULL DEFAULT 0,
+    last_strike INTEGER NOT NULL,
+    banned_until INTEGER
+  )`,
+  `CREATE TABLE IF NOT EXISTS price_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    symbol TEXT NOT NULL,
+    price REAL NOT NULL,
+    buy_price REAL,
+    sell_price REAL,
+    created_at INTEGER NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_price_snap ON price_snapshots(symbol, created_at)`,
+  `CREATE TABLE IF NOT EXISTS portfolio_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    total_value REAL NOT NULL,
+    gold_amount REAL NOT NULL,
+    silver_amount REAL NOT NULL,
+    tmn_amount REAL NOT NULL,
+    gold_value REAL NOT NULL,
+    silver_value REAL NOT NULL,
+    created_at INTEGER NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_portfolio_snap ON portfolio_snapshots(created_at)`,
+  `INSERT INTO app_meta (key, value) VALUES ('schema_version', '2') ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
 ];
 
 /* اجرای یک‌باره اسکیما در هر isolate (idempotent) */

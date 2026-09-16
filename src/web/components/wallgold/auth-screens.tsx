@@ -3,6 +3,7 @@
 /**
  * صفحه‌های احراز هویت:
  * - FullScreenLoader: بررسی نشست اولیه
+ * - OfflineScreen:    قطع اتصال به سرور + تلاش مجدد
  * - SetupWizard:      راه‌اندازی اولیه (رمز ← 2FA با QR و راش ← کدهای پشتیبان)
  * - LoginScreen:      ورود با رمز + کد 2FA
  */
@@ -26,6 +27,8 @@ import {
   Download,
   ArrowLeft,
   ShieldAlert,
+  WifiOff,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -62,6 +65,43 @@ function BrandHeader({ title, subtitle, icon: Icon }: { title: React.ReactNode; 
         {subtitle}
       </p>
       <p className="text-[11px] text-muted-foreground/70 mt-1 text-center">{title}</p>
+    </div>
+  );
+}
+
+/* ------------------------------ صفحه آفلاین ------------------------------ */
+
+export function OfflineScreen({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background px-6">
+      <div className="w-full max-w-sm">
+        <BrandHeader
+          title="اینترنت خود را بررسی کنید و دوباره تلاش کنید"
+          subtitle="اتصال برقرار نیست"
+          icon={WifiOff}
+        />
+
+        <div className="rounded-2xl border border-border bg-card p-6 flex flex-col items-center gap-4 text-center">
+          <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+            <WifiOff className="w-8 h-8 text-gold" aria-hidden="true" />
+          </div>
+          <div className="space-y-1">
+            <h2 className="font-bold">ارتباط با سرور برقرار نشد</h2>
+            <p className="text-sm text-muted-foreground leading-6">
+              اتصال اینترنت یا شبکه خود را بررسی کنید.
+              اگر مشکل ادامه داشت، چند لحظه بعد دوباره تلاش کنید.
+            </p>
+          </div>
+          <Button onClick={onRetry} className="w-full">
+            <RefreshCw className="w-4 h-4 me-1" aria-hidden="true" />
+            تلاش مجدد
+          </Button>
+        </div>
+
+        <p className="text-[11px] text-muted-foreground text-center mt-6 leading-6">
+          داده‌های شما امن است؛ برای ادامه، اتصال را برقرار کرده و تلاش مجدد کنید.
+        </p>
+      </div>
     </div>
   );
 }

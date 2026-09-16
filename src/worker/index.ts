@@ -6,9 +6,10 @@
  *  ۲. محدودسازی حجم بدنه درخواست (۱۰۰KB)
  *  ۳. هدرهای امنیتی (CSP، X-Frame-Options، nosniff، Referrer-Policy، HSTS...)
  *  ۴. ضد CSRF: هدر X-Requested-With + بررسی Origin برای متدهای تغییردهنده
- *  ۵. مسیرهای عمومی احراز هویت (/api/auth/*)
- *  ۶. میان‌افزار requireAuth برای همه روت‌های داده (نشست ۱ ساعته)
- *  ۷. مدیریت خطای متمرکز بدون افشای جزئیات داخلی
+ *  ۵. ضد ربات و فلود: مسدودسازی ابزارهای اسکن/حمله + سقف نرخ درون-ایزولته
+ *  ۶. مسیرهای عمومی احراز هویت (/api/auth/*) با بن IP پلکانی
+ *  ۷. میان‌افزار requireAuth برای همه روت‌های داده (نشست ۱ ساعته)
+ *  ۸. مدیریت خطای متمرکز بدون افشای جزئیات داخلی
  *
  * نکته: توکن‌های وال‌گلد فقط در سمت Worker استفاده می‌شوند و هرگز به
  * مرورگر ارسال نمی‌شوند؛ اتصال خروجی تنها به api.wallgold.ir است.
@@ -23,7 +24,9 @@ import { accountRoutes } from "./routes/accounts";
 import { marketRoutes, balanceRoutes } from "./routes/markets";
 import { tradingRoutes, priceRoutes } from "./routes/trading";
 import { historyRoutes, settingsRoutes, securityRoutes } from "./routes/history";
+import { analyticsRoutes } from "./routes/analytics";
 import { WgError } from "./wallgold";
+import { clientIp, inMemoryRateLimit, isBadBot, recordSecurityEvent } from "./ratelimit";
 
 const app = new Hono<AppBindings>();
 
@@ -101,8 +104,15 @@ app.use("*", async (c, next) => {
 app.use("/api/*", async (c, next) => {
   const method = c.req.method;
   if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
+    const ip = clientIp(c.req.header("cf-connecting-ip"));
     // الف) هدر سفارشی — از درخواست متقاطع قابل ارسال نیست بدون مجوز CORS
     if (c.req.header("x-requested-with") !== "fetch") {
+      recordSecurityEvent(c.env.DB, {
+        type: "csrf_blocked",
+        ip,
+        userAgent: c.req.header("user-agent"),
+        detail: `هدر امنیتی موجود نبود (${new URL(c.req.url).pathname})`,
+      }).catch(() => {});
       return c.json({ success: false, message: "درخواست نامعتبر (CSRF)." }, 403);
     }
     // ب) بررسی Origin در صورت ارسال
@@ -112,6 +122,12 @@ app.use("/api/*", async (c, next) => {
         const originHost = new URL(origin).host;
         const requestHost = new URL(c.req.url).host;
         if (originHost !== requestHost) {
+          recordSecurityEvent(c.env.DB, {
+            type: "csrf_blocked",
+            ip,
+            userAgent: c.req.header("user-agent"),
+            detail: `Origin متقاطع: ${originHost}`,
+          }).catch(() => {});
           return c.json({ success: false, message: "درخواست متقاطع مجاز نیست." }, 403);
         }
       } catch {
@@ -122,7 +138,49 @@ app.use("/api/*", async (c, next) => {
   await next();
 });
 
-/* ------------------------ ۵) روت‌های عمومی ------------------------ */
+/* ------------------ ۵) ضد ربات + سقف نرخ درون-ایزولته ------------------ */
+
+app.use("/api/*", async (c, next) => {
+  const ip = clientIp(c.req.header("cf-connecting-ip"));
+  const ua = c.req.header("user-agent");
+  const path = new URL(c.req.url).pathname;
+
+  // الف) مسدودسازی ابزارهای حمله/اسکن شناخته‌شده روی مسیرهای احراز هویت
+  if (path.startsWith("/api/auth") && isBadBot(ua)) {
+    recordSecurityEvent(c.env.DB, {
+      type: "bot_blocked",
+      ip,
+      userAgent: ua,
+      detail: `ابزار حمله روی ${path}`,
+    }).catch(() => {});
+    return c.json({ success: false, message: "دسترسی مسدود شد." }, 403);
+  }
+
+  // ب) سقف نرخ: مسیرهای احراز هویت ۳۰ درخواست/دقیقه، سایر API ها ۳۰۰ درخواست/دقیقه
+  const isAuth = path.startsWith("/api/auth");
+  const ok = isAuth
+    ? inMemoryRateLimit(`mem:auth:${ip}`, 30, 60_000)
+    : inMemoryRateLimit(`mem:api:${ip}`, 300, 60_000);
+  if (!ok) {
+    if (isAuth) {
+      recordSecurityEvent(c.env.DB, {
+        type: "rate_limited",
+        ip,
+        userAgent: ua,
+        detail: `سقف نرخ مسیر احراز هویت (${path})`,
+      }).catch(() => {});
+    }
+    c.header("Retry-After", "60");
+    return c.json(
+      { success: false, message: "تعداد درخواست‌ها بیش از حد مجاز است. کمی صبر کنید." },
+      429
+    );
+  }
+
+  await next();
+});
+
+/* ------------------------ ۶) روت‌های عمومی ------------------------ */
 
 app.get("/api/health", (c) =>
   c.json({ success: true, ok: true, time: new Date().toISOString() })
@@ -130,7 +188,7 @@ app.get("/api/health", (c) =>
 
 app.route("/api/auth", authRoutes);
 
-/* ------------------------ ۶) روت‌های نیازمند نشست ------------------------ */
+/* ------------------------ ۷) روت‌های نیازمند نشست ------------------------ */
 
 app.use("/api/*", requireAuth);
 
@@ -142,8 +200,9 @@ app.route("/api/orders", tradingRoutes);
 app.route("/api/history", historyRoutes);
 app.route("/api/settings", settingsRoutes);
 app.route("/api/security", securityRoutes);
+app.route("/api/analytics", analyticsRoutes);
 
-/* ------------------------ ۷) خطاهای متمرکز ------------------------ */
+/* ------------------------ ۸) خطاهای متمرکز ------------------------ */
 
 app.notFound((c) => {
   if (new URL(c.req.url).pathname.startsWith("/api/")) {

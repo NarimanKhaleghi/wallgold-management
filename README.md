@@ -45,6 +45,11 @@
 |:---:|:---:|
 | ![login](docs/screenshots/07-login.png) | ![light](docs/screenshots/09-light-theme.png) |
 
+| Analytics & charts | Settings — organized tabs |
+|:---:|:---:|
+| ![analytics](docs/screenshots/13-analytics.png) | ![settings](docs/screenshots/14-settings-general.png) |
+| *Price history, portfolio value, trade PnL* | *Accounts / General / Security* |
+
 ## 🌟 About The Project
 
 **WallGold Manager** gives you a single, private control panel for all your [WallGold](https://wallgold.ir) OTC gold & silver accounts: real-time balances across accounts, a deliberate **4-step confirmation flow** for every buy/sell order (because one-click trading with real money is dangerous), a complete order history, and hard security defaults — password login, **TOTP two-factor authentication**, 1-hour expiring sessions, and API tokens encrypted at rest with **AES-256-GCM**.

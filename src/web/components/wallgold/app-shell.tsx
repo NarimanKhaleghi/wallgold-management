@@ -4,8 +4,10 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useAppStore, type AppView } from "@/store/app-store";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { usePwaInstall } from "@/lib/pwa";
 import {
   LayoutDashboard,
+  ChartLine,
   ArrowLeftRight,
   History,
   Settings as SettingsIcon,
@@ -16,11 +18,13 @@ import {
   Coins,
   Loader2,
   Timer,
+  MonitorSmartphone,
 } from "lucide-react";
 
-const NAV_ITEMS: { key: AppView; label: string; icon: typeof LayoutDashboard }[] = [
+const NAV_ITEMS: { key: AppView; label: string; shortLabel?: string; icon: typeof LayoutDashboard }[] = [
   { key: "dashboard", label: "داشبورد", icon: LayoutDashboard },
-  { key: "trade", label: "خرید و فروش", icon: ArrowLeftRight },
+  { key: "analytics", label: "تحلیل", icon: ChartLine },
+  { key: "trade", label: "خرید و فروش", shortLabel: "معامله", icon: ArrowLeftRight },
   { key: "orders", label: "سفارش‌ها", icon: History },
   { key: "settings", label: "تنظیمات", icon: SettingsIcon },
 ];
@@ -48,6 +52,7 @@ export function AppShell({
   const [refreshing, setRefreshing] = useState(false);
   const [pulse, setPulse] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const { canInstall, promptInstall, isStandalone } = usePwaInstall();
 
   const handleRefresh = async () => {
     if (refreshing) return;
@@ -75,19 +80,25 @@ export function AppShell({
     <div className="min-h-screen flex flex-col bg-background">
       {/* ---------- هدر ---------- */}
       <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur-md">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center gap-3">
+        <div className="max-w-6xl mx-auto px-3 sm:px-4 h-14 sm:h-16 flex items-center gap-2 sm:gap-3">
           {/* لوگو و عنوان */}
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-10 h-10 rounded-xl border-gold-gradient flex items-center justify-center shrink-0">
-              <Coins className="w-5.5 h-5.5 text-gold" aria-hidden="true" />
+          <button
+            onClick={() => setView("dashboard")}
+            className="flex items-center gap-2.5 min-w-0 focus-visible:outline-ring focus-visible:outline-2 rounded-xl px-1 py-1"
+            aria-label="بازگشت به داشبورد"
+          >
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl border-gold-gradient flex items-center justify-center shrink-0">
+              <Coins className="w-5 h-5 text-gold" aria-hidden="true" />
             </div>
-            <div className="min-w-0">
-              <h1 className="font-bold text-base leading-tight truncate">
+            <div className="min-w-0 hidden xs:block sm:block">
+              <h1 className="font-bold text-sm sm:text-base leading-tight truncate">
                 مدیریت <span className="text-gold-gradient">وال‌گلد</span>
               </h1>
-              <p className="text-[11px] text-muted-foreground leading-tight">امن و رمزنگاری‌شده</p>
+              <p className="text-[10px] sm:text-[11px] text-muted-foreground leading-tight hidden sm:block">
+                امن و رمزنگاری‌شده
+              </p>
             </div>
-          </div>
+          </button>
 
           {/* ناوبری دسکتاپ */}
           <nav aria-label="ناوبری اصلی" className="hidden md:flex items-center gap-1 mx-auto">
@@ -97,7 +108,7 @@ export function AppShell({
                 onClick={() => setView(item.key)}
                 aria-current={view === item.key ? "page" : undefined}
                 className={cn(
-                  "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                  "flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-colors",
                   view === item.key
                     ? "bg-accent text-accent-foreground"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
@@ -110,8 +121,21 @@ export function AppShell({
           </nav>
 
           {/* ابزارهای هدر */}
-          <div className="flex items-center gap-1.5 me-auto md:me-0">
+          <div className="flex items-center gap-1 ms-auto md:me-0">
             <SessionCountdown expiresAt={expiresAt} serverOffset={serverOffset} />
+
+            {canInstall && !isStandalone && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={promptInstall}
+                title="نصب اپلیکیشن روی این دستگاه"
+                aria-label="نصب اپلیکیشن روی این دستگاه"
+                className="text-gold"
+              >
+                <MonitorSmartphone className="w-4.5 h-4.5" aria-hidden="true" />
+              </Button>
+            )}
 
             <Button
               variant="ghost"
@@ -164,13 +188,13 @@ export function AppShell({
       </header>
 
       {/* ---------- محتوا ---------- */}
-      <main className="flex-1 w-full max-w-6xl mx-auto px-4 pt-6 pb-28 md:pb-10">{children}</main>
+      <main className="flex-1 w-full max-w-6xl mx-auto px-3 sm:px-4 pt-4 sm:pt-6 pb-28 md:pb-10">{children}</main>
 
       {/* ---------- فوتر ---------- */}
       <footer className="mt-auto border-t border-border/60 py-4 px-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-between text-[11px] text-muted-foreground">
-          <span>مدیریت حساب‌های وال‌گلد — توکن‌ها رمزنگاری‌شده و بدون ارسال به سرور ثالث</span>
-          <span className="hidden sm:inline">API رسمی: api.wallgold.ir</span>
+        <div className="max-w-6xl mx-auto flex items-center justify-between text-[11px] text-muted-foreground gap-3">
+          <span className="truncate">مدیریت حساب‌های وال‌گلد — توکن‌ها رمزنگاری‌شده و بدون ارسال به سرور ثالث</span>
+          <span className="hidden sm:inline shrink-0">API رسمی: api.wallgold.ir</span>
         </div>
       </footer>
 
@@ -180,19 +204,19 @@ export function AppShell({
         className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border/60 bg-background/90 backdrop-blur-md"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
-        <div className="grid grid-cols-4 h-16">
+        <div className="grid grid-cols-5 h-16 max-w-md mx-auto">
           {NAV_ITEMS.map((item) => (
             <button
               key={item.key}
               onClick={() => setView(item.key)}
               aria-current={view === item.key ? "page" : undefined}
               className={cn(
-                "flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors",
+                "flex flex-col items-center justify-center gap-1 text-[10px] sm:text-[11px] font-medium transition-colors min-h-11",
                 view === item.key ? "text-gold" : "text-muted-foreground"
               )}
             >
               <item.icon className="w-5 h-5" aria-hidden="true" />
-              {item.label}
+              {item.shortLabel ?? item.label}
             </button>
           ))}
         </div>
@@ -253,7 +277,7 @@ function StatusBar() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 pb-2 flex items-center gap-4 text-[11px] text-muted-foreground">
+    <div className="max-w-6xl mx-auto px-3 sm:px-4 pb-2 flex items-center gap-4 text-[11px] text-muted-foreground">
       <span className="flex items-center gap-1">
         {(marketsLoading || balancesLoading) && (
           <Loader2 className="w-3 h-3 animate-spin text-gold" aria-hidden="true" />

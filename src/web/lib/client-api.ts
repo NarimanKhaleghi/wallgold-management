@@ -164,6 +164,104 @@ export interface AppSettingsInfo {
   defaultTheme: "dark" | "light";
 }
 
+/* --------------------------------- تحلیل --------------------------------- */
+
+export type AnalyticsRange = "24h" | "7d" | "30d";
+
+export interface PricePoint {
+  t: number; // epoch ms (ابتدای باکت)
+  price: number;
+  buy: number | null;
+  sell: number | null;
+}
+
+export interface PriceSeries {
+  symbol: string;
+  points: PricePoint[];
+}
+
+export interface PortfolioPoint {
+  t: number;
+  value: number;
+}
+
+export interface MarketTradeStats {
+  buyCount: number;
+  sellCount: number;
+  buyVolume: number;
+  sellVolume: number;
+  buyValue: number;
+  sellValue: number;
+  fees: number;
+  realizedPnl: number;
+  openLotsQty: number;
+  openLotsCost: number;
+  unrealizedPnl: number;
+}
+
+export interface AnalyticsData {
+  range: AnalyticsRange;
+  prices: PriceSeries[];
+  portfolio: PortfolioPoint[];
+  trades: { gold: MarketTradeStats; silver: MarketTradeStats };
+  serverNow: number;
+}
+
+/* ------------------------------ داشبورد امنیتی ------------------------------ */
+
+export type SecurityEventType =
+  | "login_failed"
+  | "login_success"
+  | "totp_failed"
+  | "setup_completed"
+  | "password_changed"
+  | "2fa_enabled"
+  | "2fa_disabled"
+  | "rate_limited"
+  | "ip_banned"
+  | "banned_access"
+  | "bot_blocked"
+  | "csrf_blocked"
+  | "unban_action"
+  | "wipe_executed"
+  | "logout_all";
+
+export interface SecurityEvent {
+  id: string;
+  type: SecurityEventType | string;
+  ip: string | null;
+  userAgent: string | null;
+  detail: string | null;
+  createdAt: string;
+}
+
+export interface ActiveBan {
+  ip: string;
+  strikes: number;
+  bannedUntil: number;
+}
+
+export interface SecurityDashboard {
+  events: SecurityEvent[];
+  bans: ActiveBan[];
+  stats: {
+    failedLogins24h: number;
+    successfulLogins24h: number;
+    activeBans: number;
+    activeSessions: number;
+  };
+}
+
+export interface SessionDevice {
+  id: string;
+  current: boolean;
+  ip: string | null;
+  userAgent: string | null;
+  createdAt: string;
+  expiresAt: string;
+  lastSeenAt: string;
+}
+
 /* --------------------------------- احراز هویت --------------------------------- */
 
 export interface AuthStatus {
@@ -300,4 +398,13 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ password, code }),
     }),
+
+  /* -------------------------------- تحلیل -------------------------------- */
+  getAnalytics: (range: AnalyticsRange) =>
+    request<AnalyticsData>(`/api/analytics?range=${range}`),
+
+  /* ---------------------------- داشبورد امنیتی ---------------------------- */
+  getSecurityDashboard: () => request<SecurityDashboard>("/api/security/events"),
+  unbanAll: () => request<{ success: boolean; message: string }>("/api/security/unban", { method: "POST" }),
+  getSessions: () => request<{ sessions: SessionDevice[] }>("/api/security/sessions"),
 };

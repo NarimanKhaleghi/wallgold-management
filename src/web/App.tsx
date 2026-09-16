@@ -19,6 +19,7 @@ import { useAppData, useAutoLogout } from "@/hooks/use-app-data";
 import { useAppStore } from "@/store/app-store";
 import { AppShell } from "@/components/wallgold/app-shell";
 import { Dashboard } from "@/components/wallgold/dashboard";
+import { AnalyticsView } from "@/components/wallgold/analytics-view";
 import { TradeWizard } from "@/components/wallgold/trade-wizard";
 import { OrdersView } from "@/components/wallgold/orders-view";
 import { SettingsView } from "@/components/wallgold/settings-view";
@@ -27,12 +28,15 @@ import { PullToRefresh } from "@/components/wallgold/pull-to-refresh";
 import {
   FullScreenLoader,
   LoginScreen,
+  OfflineScreen,
   SetupWizard,
 } from "@/components/wallgold/auth-screens";
-import { Coins } from "lucide-react";
+import { Coins, ChartLine } from "lucide-react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Toaster } from "@/components/ui/sonner";
 
-type AuthPhase = "loading" | "setup" | "login" | "authed";
+type AuthPhase = "loading" | "setup" | "login" | "authed" | "offline";
 
 export default function App() {
   const [phase, setPhase] = useState<AuthPhase>("loading");
@@ -52,16 +56,25 @@ export default function App() {
         setServerOffset(s.serverNow - Date.now());
         setHas2fa(s.has2fa);
         setPhase("authed");
-      } catch {
+      } catch (e) {
         if (!alive) return;
+        // خطای شبکه (status 0) ≠ عدم راه‌اندازی — حالت آفلاین متمایز است
+        if (e instanceof ApiError && e.status === 0) {
+          setPhase("offline");
+          return;
+        }
         try {
           const st = await api.auth.status();
           if (!alive) return;
           setHas2fa(st.has2fa);
           setPhase(st.initialized ? "login" : "setup");
-        } catch {
+        } catch (e2) {
           if (!alive) return;
-          setPhase("setup");
+          if (e2 instanceof ApiError && e2.status === 0) {
+            setPhase("offline");
+          } else {
+            setPhase("setup");
+          }
         }
       }
     })();
@@ -69,6 +82,28 @@ export default function App() {
     return () => {
       alive = false;
     };
+  }, []);
+
+  /* ---------- تلاش مجدد پس از قطع اتصال ---------- */
+  const handleRetry = useCallback(() => {
+    setPhase("loading");
+    (async () => {
+      try {
+        const s = await api.auth.session();
+        setSessionExpiresAt(s.expiresAt);
+        setServerOffset(s.serverNow - Date.now());
+        setHas2fa(s.has2fa);
+        setPhase("authed");
+      } catch {
+        try {
+          const st = await api.auth.status();
+          setHas2fa(st.has2fa);
+          setPhase(st.initialized ? "login" : "setup");
+        } catch {
+          setPhase("offline");
+        }
+      }
+    })();
   }, []);
 
   /* ---------- خروج اجباری در صورت 401 (نشست منقضی) ---------- */
@@ -112,34 +147,58 @@ export default function App() {
     toast.success("با موفقیت خارج شدید");
   }, []);
 
-  if (phase === "loading") return <FullScreenLoader />;
+  if (phase === "loading")
+    return (
+      <>
+        <FullScreenLoader />
+        <Toaster />
+      </>
+    );
+
+  if (phase === "offline") {
+    return (
+      <>
+        <OfflineScreen onRetry={handleRetry} />
+        <Toaster />
+      </>
+    );
+  }
 
   if (phase === "setup") {
     return (
-      <SetupWizard
-        onComplete={(expiresAt, offset) => handleAuthed(expiresAt, offset)}
-      />
+      <>
+        <SetupWizard
+          onComplete={(expiresAt, offset) => handleAuthed(expiresAt, offset)}
+        />
+        <Toaster />
+      </>
     );
   }
 
   if (phase === "login") {
     return (
-      <LoginScreen
-        has2fa={has2fa}
-        onLogin={(expiresAt, offset, enabled2fa) => {
-          setHas2fa(enabled2fa);
-          handleAuthed(expiresAt, offset);
-        }}
-      />
+      <>
+        <LoginScreen
+          has2fa={has2fa}
+          onLogin={(expiresAt, offset, enabled2fa) => {
+            setHas2fa(enabled2fa);
+            handleAuthed(expiresAt, offset);
+          }}
+        />
+        <Toaster />
+      </>
     );
   }
 
   return (
-    <MainApp
-      expiresAt={sessionExpiresAt ?? Date.now() + 3600_000}
-      serverOffset={serverOffset}
-      onLogout={handleLogout}
-    />
+    <>
+      <MainApp
+        expiresAt={sessionExpiresAt ?? Date.now() + 3600_000}
+        serverOffset={serverOffset}
+        onLogout={handleLogout}
+      />
+      <Toaster />
+    </>
   );
 }
 
@@ -181,10 +240,17 @@ function MainApp({
     <AppShell onRefresh={refreshAll} expiresAt={expiresAt} serverOffset={serverOffset} onLogout={onLogout}>
       <PullToRefresh onRefresh={refreshAll}>
         {accounts.length === 0 ? (
-          view === "settings" ? <SettingsView /> : <EmptyState />
+          view === "settings" ? (
+            <SettingsView />
+          ) : view === "analytics" ? (
+            <AnalyticsView />
+          ) : (
+            <EmptyState />
+          )
         ) : (
           <>
             {view === "dashboard" && <Dashboard />}
+            {view === "analytics" && <AnalyticsView />}
             {view === "trade" && <TradeWizard />}
             {view === "orders" && <OrdersView />}
             {view === "settings" && <SettingsView />}
@@ -197,6 +263,7 @@ function MainApp({
 
 /** حالت خالی — راهنمای افزودن اولین حساب وال‌گلد */
 function EmptyState() {
+  const setView = useAppStore((s) => s.setView);
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-6 py-16 text-center">
       <div className="w-20 h-20 rounded-3xl border-gold-gradient flex items-center justify-center mb-6">
@@ -213,7 +280,13 @@ function EmptyState() {
         توکن API را می‌توانید از پنل کاربری وال‌گلد (بخش ساخت Api-Key) دریافت کنید. توکن شما به‌صورت رمزنگاری‌شده
         (AES-256-GCM) ذخیره می‌شود و هرگز به مرورگر ارسال نمی‌گردد.
       </p>
-      <AddAccountDialog />
+      <div className="flex flex-col sm:flex-row items-center gap-3">
+        <AddAccountDialog />
+        <Button variant="outline" onClick={() => setView("analytics")} className="gap-2 w-full sm:w-auto">
+          <ChartLine className="w-4 h-4 text-gold" aria-hidden="true" />
+          مشاهده نمودار قیمت بازار
+        </Button>
+      </div>
     </div>
   );
 }

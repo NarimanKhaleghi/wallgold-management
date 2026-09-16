@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { AppSettingsInfo, PublicAccount, Market, AccountBalances } from "@/lib/client-api";
 
-export type AppView = "dashboard" | "trade" | "orders" | "settings";
+export type AppView = "dashboard" | "analytics" | "trade" | "orders" | "settings";
 export type Theme = "dark" | "light";
 
 /** تم اولیه: از localStorage (انتخاب دستی کاربر) یا پیش‌فرض تاریک */

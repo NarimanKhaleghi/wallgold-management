@@ -75,106 +75,119 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* ---------- تم روشن وال‌گلد (سفید + طلایی) ---------- */
+/*
+ * ---------- پالت رسمی وال‌گلد (استخراج‌شده از wallgold.ir) ----------
+ *   طلایی برند:        #B99C49
+ *   طلایی تیره:        #7D641E
+ *   زغالی سرمه‌ای:      #171D26
+ *   پس‌زمینه روشن:      #F5F6F7
+ *   حاشیه روشن:        #D7DADF
+ *   کرم گرم:           #F1F1EA
+ */
+
+/* ---------- تم روشن وال‌گلد ---------- */
 :root {
   --radius: 0.75rem;
-  --background: oklch(0.98 0.004 95);
-  --foreground: oklch(0.19 0.01 95);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.19 0.01 95);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.19 0.01 95);
-  --primary: oklch(0.68 0.12 85);
-  --primary-foreground: oklch(0.99 0.005 95);
-  --secondary: oklch(0.95 0.01 95);
-  --secondary-foreground: oklch(0.25 0.01 95);
-  --muted: oklch(0.955 0.008 95);
-  --muted-foreground: oklch(0.5 0.015 95);
-  --accent: oklch(0.93 0.03 90);
-  --accent-foreground: oklch(0.3 0.05 85);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.9 0.015 95);
-  --input: oklch(0.9 0.015 95);
-  --ring: oklch(0.68 0.12 85);
-  --chart-1: oklch(0.76 0.13 85);
-  --chart-2: oklch(0.75 0.08 250);
-  --chart-3: oklch(0.65 0.05 250);
-  --chart-4: oklch(0.85 0.1 90);
-  --chart-5: oklch(0.6 0.1 85);
-  --sidebar: oklch(0.97 0.006 95);
-  --sidebar-foreground: oklch(0.19 0.01 95);
-  --sidebar-primary: oklch(0.68 0.12 85);
-  --sidebar-primary-foreground: oklch(0.99 0.005 95);
-  --sidebar-accent: oklch(0.93 0.03 90);
-  --sidebar-accent-foreground: oklch(0.3 0.05 85);
-  --sidebar-border: oklch(0.9 0.015 95);
-  --sidebar-ring: oklch(0.68 0.12 85);
-  --gold: oklch(0.68 0.12 85);
-  --gold-soft: oklch(0.85 0.1 90);
-  --gold-deep: oklch(0.55 0.11 80);
-  --gold-foreground: oklch(0.99 0.005 95);
-  --buy: oklch(0.6 0.15 160);
-  --sell: oklch(0.55 0.2 25);
+  --background: #f5f6f7;
+  --foreground: #171d26;
+  --card: #ffffff;
+  --card-foreground: #171d26;
+  --popover: #ffffff;
+  --popover-foreground: #171d26;
+  --primary: #b99c49;
+  --primary-foreground: #171d26;
+  --secondary: #eceef1;
+  --secondary-foreground: #2a323e;
+  --muted: #e9ebee;
+  --muted-foreground: #5c6470;
+  --accent: #f1f1ea;
+  --accent-foreground: #6e5719;
+  --destructive: #d92d20;
+  --border: #d7dadf;
+  --input: #c9ced5;
+  --ring: #b99c49;
+  --chart-1: #b99c49;
+  --chart-2: #8d9aab;
+  --chart-3: #6b7a8c;
+  --chart-4: #d4ba6b;
+  --chart-5: #8a6d29;
+  --sidebar: #eceef1;
+  --sidebar-foreground: #171d26;
+  --sidebar-primary: #b99c49;
+  --sidebar-primary-foreground: #171d26;
+  --sidebar-accent: #f1f1ea;
+  --sidebar-accent-foreground: #6e5719;
+  --sidebar-border: #d7dadf;
+  --sidebar-ring: #b99c49;
+  --gold: #a8863a;
+  --gold-soft: #d4ba6b;
+  --gold-deep: #7d641e;
+  --gold-foreground: #ffffff;
+  --buy: #0e9f6e;
+  --sell: #d92d20;
 }
 
-/* ---------- تم تاریک وال‌گلد (مشکی #0F1011 + طلایی) ---------- */
+/* ---------- تم تاریک وال‌گلد (زغالی سرمه‌ای + طلایی) ---------- */
 .dark {
-  --background: oklch(0.165 0.005 95);
-  --foreground: oklch(0.93 0.005 95);
-  --card: oklch(0.205 0.007 95);
-  --card-foreground: oklch(0.93 0.005 95);
-  --popover: oklch(0.22 0.008 95);
-  --popover-foreground: oklch(0.93 0.005 95);
-  --primary: oklch(0.76 0.13 85);
-  --primary-foreground: oklch(0.16 0.01 95);
-  --secondary: oklch(0.26 0.01 95);
-  --secondary-foreground: oklch(0.93 0.005 95);
-  --muted: oklch(0.25 0.01 95);
-  --muted-foreground: oklch(0.65 0.01 95);
-  --accent: oklch(0.3 0.03 90);
-  --accent-foreground: oklch(0.88 0.08 90);
-  --destructive: oklch(0.65 0.19 25);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 14%);
-  --ring: oklch(0.76 0.13 85);
-  --chart-1: oklch(0.76 0.13 85);
-  --chart-2: oklch(0.75 0.08 250);
-  --chart-3: oklch(0.65 0.05 250);
-  --chart-4: oklch(0.85 0.1 90);
-  --chart-5: oklch(0.6 0.1 85);
-  --sidebar: oklch(0.185 0.006 95);
-  --sidebar-foreground: oklch(0.93 0.005 95);
-  --sidebar-primary: oklch(0.76 0.13 85);
-  --sidebar-primary-foreground: oklch(0.16 0.01 95);
-  --sidebar-accent: oklch(0.28 0.02 92);
-  --sidebar-accent-foreground: oklch(0.88 0.08 90);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.76 0.13 85);
-  --gold: oklch(0.76 0.13 85);
-  --gold-soft: oklch(0.85 0.1 90);
-  --gold-deep: oklch(0.62 0.12 85);
-  --gold-foreground: oklch(0.16 0.01 95);
-  --buy: oklch(0.7 0.16 160);
-  --sell: oklch(0.65 0.2 25);
+  --background: #12161d;
+  --foreground: #e9ecf1;
+  --card: #1a212b;
+  --card-foreground: #e9ecf1;
+  --popover: #1e2530;
+  --popover-foreground: #e9ecf1;
+  --primary: #b99c49;
+  --primary-foreground: #12161d;
+  --secondary: #232b37;
+  --secondary-foreground: #e9ecf1;
+  --muted: #1e2530;
+  --muted-foreground: #98a2b0;
+  --accent: #262c38;
+  --accent-foreground: #d9c68a;
+  --destructive: #ef4444;
+  --border: rgba(255, 255, 255, 0.09);
+  --input: rgba(255, 255, 255, 0.13);
+  --ring: #b99c49;
+  --chart-1: #c9a95c;
+  --chart-2: #9aa7b8;
+  --chart-3: #6f8296;
+  --chart-4: #d4ba6b;
+  --chart-5: #a07e2f;
+  --sidebar: #171d26;
+  --sidebar-foreground: #e9ecf1;
+  --sidebar-primary: #b99c49;
+  --sidebar-primary-foreground: #12161d;
+  --sidebar-accent: #262c38;
+  --sidebar-accent-foreground: #d9c68a;
+  --sidebar-border: rgba(255, 255, 255, 0.09);
+  --sidebar-ring: #b99c49;
+  --gold: #c9a95c;
+  --gold-soft: #d4ba6b;
+  --gold-deep: #e2c87e;
+  --gold-foreground: #12161d;
+  --buy: #10b981;
+  --sell: #f0565a;
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
   }
   ::selection {
-    background: oklch(0.76 0.13 85 / 30%);
+    background: rgba(185, 156, 73, 35%);
   }
 }
 
 @layer utilities {
   /* متن با گرادیان طلایی وال‌گلد */
   .text-gold-gradient {
-    background: linear-gradient(135deg, oklch(0.85 0.1 90), oklch(0.76 0.13 85) 45%, oklch(0.62 0.12 85));
+    background: linear-gradient(135deg, #e2c87e, #b99c49 45%, #8a6d29);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -184,30 +197,44 @@
     border: 1px solid transparent;
     background:
       linear-gradient(var(--card), var(--card)) padding-box,
-      linear-gradient(135deg, oklch(0.76 0.13 85 / 60%), oklch(0.85 0.1 90 / 25%)) border-box;
+      linear-gradient(135deg, rgba(185, 156, 73, 65%), rgba(185, 156, 73, 18%)) border-box;
+  }
+  /* پس‌زمینه گرادیانی ملایم طلایی برای هدر کارت‌های ویژه */
+  .bg-gold-wash {
+    background:
+      radial-gradient(120% 140% at 100% 0%, rgba(185, 156, 73, 14%), transparent 55%),
+      var(--card);
   }
   /* اسکرول‌بار ظریف طلایی */
   .thin-scrollbar {
     scrollbar-width: thin;
-    scrollbar-color: oklch(0.76 0.13 85 / 35%) transparent;
+    scrollbar-color: rgba(185, 156, 73, 35%) transparent;
   }
   .thin-scrollbar::-webkit-scrollbar {
     width: 6px;
     height: 6px;
   }
   .thin-scrollbar::-webkit-scrollbar-thumb {
-    background: oklch(0.76 0.13 85 / 35%);
+    background: rgba(185, 156, 73, 35%);
     border-radius: 999px;
   }
   .thin-scrollbar::-webkit-scrollbar-track {
     background: transparent;
+  }
+  /* بدون اسکرول‌بار (تب‌های افقی و…) */
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
   }
   /* انیمیشن نبض طلایی برای قیمت زنده */
   .price-pulse {
     animation: pricePulse 0.6s ease;
   }
   @keyframes pricePulse {
-    0% { color: var(--gold); text-shadow: 0 0 12px oklch(0.76 0.13 85 / 50%); }
+    0% { color: var(--gold); text-shadow: 0 0 12px rgba(185, 156, 73, 50%); }
     100% { color: inherit; text-shadow: none; }
   }
   /* اسکلتون درخشان */
@@ -219,11 +246,15 @@
     content: "";
     position: absolute;
     inset: 0;
-    background: linear-gradient(90deg, transparent, oklch(1 0 0 / 6%), transparent);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 6%), transparent);
     animation: shimmer 1.6s infinite;
   }
   @keyframes shimmer {
     from { transform: translateX(100%); }
     to { transform: translateX(-100%); }
+  }
+  /* ظاهر عددی یک‌ارزش (اعداد همیشه یکسان‌عرض) */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
   }
 }

@@ -18,6 +18,7 @@ import { wgGetOrder } from "../wallgold";
 import { getSettings, saveSettings } from "../settings";
 import { getAuthState } from "./auth";
 import { revokeAllSessions } from "../sessions";
+import { getActiveBans, unbanAll, clientIp, recordSecurityEvent } from "../ratelimit";
 
 /* -------------------------------- تاریخچه -------------------------------- */
 
@@ -155,7 +156,7 @@ securityRoutes.post("/wipe", async (c) => {
     }
   }
 
-  // پاک‌سازی کامل: حساب‌ها، توکن‌ها، تاریخچه، تنظیمات، نشست‌ها، کدهای پشتیبان
+  // پاک‌سازی کامل: حساب‌ها، توکن‌ها، تاریخچه، تنظیمات، نشست‌ها، کدهای پشتیبان، داده‌های امنیتی/تحلیلی
   await db.batch([
     db.prepare("DELETE FROM tracked_orders"),
     db.prepare("DELETE FROM accounts"),
@@ -163,8 +164,106 @@ securityRoutes.post("/wipe", async (c) => {
     db.prepare("DELETE FROM backup_codes"),
     db.prepare("DELETE FROM sessions"),
     db.prepare("DELETE FROM login_attempts"),
+    db.prepare("DELETE FROM ip_strikes"),
+    db.prepare("DELETE FROM price_snapshots"),
+    db.prepare("DELETE FROM portfolio_snapshots"),
   ]);
 
   await revokeAllSessions(c);
   return c.json({ success: true, wiped: true, message: "تمام داده‌ها، توکن‌ها و تنظیمات پاک شدند." });
+});
+
+/* --------------------- داشبورد امنیتی (v2) --------------------- */
+
+interface SecurityEventRow {
+  id: string;
+  type: string;
+  ip: string | null;
+  user_agent: string | null;
+  detail: string | null;
+  created_at: number;
+}
+
+/** GET /api/security/events — رویدادهای امنیتی اخیر + بن‌های فعال + آمار ۲۴ ساعت */
+securityRoutes.get("/events", async (c) => {
+  const db = c.env.DB;
+  const dayAgo = nowMs() - 24 * 60 * 60_000;
+
+  const [events, bans, failedRow, successRow, sessionsRow] = await Promise.all([
+    db
+      .prepare("SELECT * FROM security_events ORDER BY created_at DESC LIMIT 100")
+      .all<SecurityEventRow>(),
+    getActiveBans(db),
+    db
+      .prepare("SELECT COUNT(*) AS n FROM security_events WHERE type = 'login_failed' AND created_at > ?")
+      .bind(dayAgo)
+      .first<{ n: number }>(),
+    db
+      .prepare("SELECT COUNT(*) AS n FROM security_events WHERE type = 'login_success' AND created_at > ?")
+      .bind(dayAgo)
+      .first<{ n: number }>(),
+    db.prepare("SELECT COUNT(*) AS n FROM sessions WHERE expires_at > ?").bind(nowMs()).first<{ n: number }>(),
+  ]);
+
+  return c.json({
+    success: true,
+    events: events.results.map((e) => ({
+      id: e.id,
+      type: e.type,
+      ip: e.ip,
+      userAgent: e.user_agent,
+      detail: e.detail,
+      createdAt: new Date(e.created_at).toISOString(),
+    })),
+    bans,
+    stats: {
+      failedLogins24h: failedRow?.n ?? 0,
+      successfulLogins24h: successRow?.n ?? 0,
+      activeBans: bans.length,
+      activeSessions: sessionsRow?.n ?? 0,
+    },
+  });
+});
+
+/** POST /api/security/unban — رفع همه بن‌ها و شمارنده‌های تلاش ناموفق */
+securityRoutes.post("/unban", async (c) => {
+  const db = c.env.DB;
+  await unbanAll(db);
+  await recordSecurityEvent(db, {
+    type: "unban_action",
+    ip: clientIp(c.req.header("cf-connecting-ip")),
+    userAgent: c.req.header("user-agent"),
+    detail: "همه بن‌ها و شمارنده‌ها دستی پاک شدند",
+  });
+  return c.json({ success: true, message: "همه بن‌ها و شمارنده‌های تلاش ناموفق پاک شدند." });
+});
+
+/** GET /api/security/sessions — نشست‌های فعال (نشست فعلی علامت‌گذاری می‌شود) */
+securityRoutes.get("/sessions", async (c) => {
+  const db = c.env.DB;
+  const currentHash = c.get("session").tokenHash;
+  const rows = await db
+    .prepare("SELECT token_hash, created_at, expires_at, last_seen_at, ip, user_agent FROM sessions WHERE expires_at > ? ORDER BY last_seen_at DESC LIMIT 50")
+    .bind(nowMs())
+    .all<{
+      token_hash: string;
+      created_at: number;
+      expires_at: number;
+      last_seen_at: number;
+      ip: string | null;
+      user_agent: string | null;
+    }>();
+
+  return c.json({
+    success: true,
+    sessions: rows.results.map((s) => ({
+      id: s.token_hash.slice(0, 10),
+      current: s.token_hash === currentHash,
+      ip: s.ip,
+      userAgent: s.user_agent,
+      createdAt: new Date(s.created_at).toISOString(),
+      expiresAt: new Date(s.expires_at).toISOString(),
+      lastSeenAt: new Date(s.last_seen_at).toISOString(),
+    })),
+  });
 });

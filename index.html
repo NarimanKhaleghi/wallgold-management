@@ -2,14 +2,25 @@
 <html lang="fa" dir="rtl">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
     <meta
       name="description"
-      content="اپلیکیشن امن مدیریت حساب‌های وال‌گلد: مشاهده موجودی چند حساب، خرید و فروش طلا و نقره با تأیید چندمرحله‌ای، ورود دومرحله‌ای و رمزنگاری توکن‌ها."
+      content="اپلیکیشن امن مدیریت حساب‌های وال‌گلد: مشاهده موجودی چند حساب، خرید و فروش طلا و نقره با تأیید چندمرحله‌ای، ورود دومرحله‌ای، نمودارهای تحلیل دارایی و نصب به‌صورت PWA."
     />
-    <meta name="theme-color" content="#0f1011" />
     <meta name="robots" content="noindex, nofollow" />
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#12161d" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f5f6f7" media="(prefers-color-scheme: light)" />
+    <meta name="application-name" content="مدیریت وال‌گلد" />
+    <!-- iOS Safari -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="وال‌گلد" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/icons/icon-192.png" type="image/png" sizes="192x192" />
     <title>مدیریت حساب‌های وال‌گلد</title>
   </head>
   <body class="font-sans antialiased bg-background text-foreground min-h-screen flex flex-col">

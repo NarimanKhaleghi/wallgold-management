@@ -1,0 +1,36 @@
+{
+  "name": "مدیریت حساب‌های وال‌گلد",
+  "short_name": "وال‌گلد",
+  "description": "مدیریت امن حساب‌های طلای آبشده وال‌گلد: مشاهده موجودی چند حساب، خرید و فروش طلا و نقره با تأیید چندمرحله‌ای، ورود دومرحله‌ای و نمودارهای تحلیل دارایی.",
+  "lang": "fa",
+  "dir": "rtl",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "background_color": "#12161d",
+  "theme_color": "#12161d",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["finance", "productivity"],
+  "prefer_related_applications": false
+}
