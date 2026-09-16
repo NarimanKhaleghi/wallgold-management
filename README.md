@@ -220,6 +220,7 @@ See [SECURITY.md](SECURITY.md) for operational security notes.
 
 | Problem | Solution |
 |---|---|
+| Deploy fails with `UnknownLockfileVersion: failed to parse lockfile: 'bun.lock'` | A `bun.lock` (created by running `bun install` locally with bun ≥ 1.3) was committed. Delete it from the repo (`git rm bun.lock && git commit && git push`) — this project uses **npm only** (`package-lock.json`). The `.gitignore` now blocks it |
 | Login fails with a CPU/execution error on the Workers **free plan** | PBKDF2 (100k iterations) can exceed the free plan's 10ms CPU budget on login. Set `PBKDF2_ITERATIONS=50000` as a variable, or use the Workers Paid plan |
 | `D1 database not connected` on first load | Add the `DB` D1 binding in Worker settings (or check `wrangler.toml` has the correct `database_id`) |
 | Markets don't load | Verify the Worker can reach `api.wallgold.ir` (it must not be blocked by your network/firewall policies) |

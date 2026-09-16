@@ -220,6 +220,7 @@ npm run totp -- <SECRET>   # تولید کد TOTP از راش base32 (ابزار
 
 | مشکل | راه‌حل |
 |---|---|
+| خطای دیپلوی `UnknownLockfileVersion: failed to parse lockfile: 'bun.lock'` | فایل `bun.lock` (ساخته‌شده با اجرای `bun install` محلی با نسخه bun ≥ ۱.۳) کامیت شده. آن را از ریپو حذف کنید (`git rm bun.lock && git commit && git push`) — این پروژه **فقط npm** را پشتیبانی می‌کند (`package-lock.json`). `.gitignore` جدید جلوی کامیت آن را می‌گیرد |
 | ورود روی **پلن رایگان** Workers با خطای CPU شکست می‌خورد | PBKDF2 (۱۰۰ هزار تکرار) ممکن است از سقف ۱۰ms پلن رایگان عبور کند. متغیر `PBKDF2_ITERATIONS=50000` را تنظیم کنید یا از پلن Paid استفاده کنید |
 | پیام «اتصال به دیتابیس D1 برقرار نشد» در اولین بار | binding ‏`DB` را در تنظیمات Worker اضافه کنید (یا `database_id` درست را در `wrangler.toml` بگذارید) |
 | بازارها لود نمی‌شوند | دسترسی Worker به `api.wallgold.ir` را بررسی کنید (فایروال/شبکه نباید آن را بسته باشد) |
