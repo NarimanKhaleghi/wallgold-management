@@ -1,0 +1,39 @@
+# ---- WallGold Manager — Cloudflare Workers ----
+# مستندات کامل استقرار: README_FA.md (فارسی) / README.md (English)
+
+name = "wallgold-management"
+main = "src/worker/index.ts"
+compatibility_date = "2025-09-01"
+
+# برای D1 نیازی به nodejs_compat نیست (Web Crypto + Hono)
+
+# ---- فایل‌های استاتیک (فرانت‌اند React ساخته‌شده با Vite) ----
+# قبل از deploy باید `npm run build` اجرا شود (اسکریپت deploy خودش انجام می‌دهد)
+[assets]
+directory = "./dist"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
+binding = "ASSETS"
+
+# ---- دیتابیس D1 ----
+# روش الف (توصیه‌شده — Deploy Button خودکار می‌سازد):
+#   اگر database_id را حذف کنید، دکمه Deploy to Cloudflare به‌صورت خودکار
+#   دیتابیس D1 را هنگام استقرار ایجاد می‌کند.
+# روش ب (دستی):
+#   ۱) wrangler d1 create wallgold-management
+#   ۲) شناسه چاپ‌شده را در database_id زیر قرار دهید
+[[d1_databases]]
+binding = "DB"
+database_name = "wallgold-management"
+# database_id = "YOUR_D1_DATABASE_ID"
+
+# ---- متغیرهای اختیاری (قابل تنظیم در Dashboard → Settings → Variables) ----
+# [vars]
+# SESSION_TTL_SECONDS = "3600"      # طول عمر نشست (پیش‌فرض ۳۶۰۰ = ۱ ساعت)
+# PBKDF2_ITERATIONS = "100000"      # تکرار PBKDF2 (پیش‌فرض ۱۰۰٬۰۰۰)
+
+# ---- رمزهای سری (Secrets) — با wrangler secret put تنظیم کنید ----
+# ENCRYPTION_KEY: کلید ۳۲ بایتی base64 برای رمزنگاری توکن‌ها (اختیاری اما توصیه‌شده)
+#   تولید: openssl rand -base64 32
+#   wrangler secret put ENCRYPTION_KEY
+# اگر تنظیم نشود، در اولین اجرا یک کلید تصادفی در D1 تولید و ذخیره می‌شود.

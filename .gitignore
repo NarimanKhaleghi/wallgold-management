@@ -1,0 +1,31 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+.vite/
+
+# wrangler
+.wrangler/
+.dev.vars
+.dev.vars.*
+
+# logs
+*.log
+npm-debug.log*
+dev.log
+server.log
+wrangler-debug.log
+
+# env
+.env
+.env.*
+
+# misc
+.DS_Store
+Thumbs.db
+*.pem
+
+# editor
+.vscode/
+.idea/
